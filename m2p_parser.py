@@ -203,15 +203,32 @@ def p_option(p, optype, optid, default_value):
     """
     option : option_type ID option_default_value
     """
-    return (option_id, option_default_value)
+    _optype = optype()
+    if default_value is not None:
+        _optype.set(default=default_value)
+    return (optid, _optype.set(name=optid))
 
 @rule
-def p_option_type(p):
+def p_option_str(p):
     """
     option_type : E_STRING
+    """
+    return core.Optype.str
+
+@rule
+def p_option_type_int(p):
+    """
     option_type : E_NUMBER
+    """
+    return core.Optype.int
+
+
+@rule
+def p_option_bool(p):
+    """
     option_type : E_BOOLEAN
     """
+    return core.Optype.bool
 
 @rule
 def p_option_type_reference(p):
