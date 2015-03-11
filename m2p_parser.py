@@ -1,12 +1,17 @@
 import sys
-sys.path.append("../mybuild")
+sys.path.insert(0, "../mybuild")
+
+import itertools
+from collections import defaultdict
+from operator import itemgetter
 
 import m2p_lex as lex
 from mylang.helpers import rule
 import ply.yacc
 
-import itertools
-from operator import itemgetter
+from mybuild import core
+from util.prop import cached_property
+
 
 
 MANDATORY = 'Mandatory'
@@ -21,9 +26,8 @@ def p_my_file(p, package, imports, entities):
     """
     my_file : package imports entities
     """
-    print package
-    print entities
-    return "SOON"
+    # print package
+    return dict(entities)
 
 # package?
 @rule
@@ -47,7 +51,8 @@ def p_annotated_type(p, annotations, member_type):
     """
     annotated_type : annotations type
     """
-    return (annotations, member_type)
+
+    return member_type
 
 @rule
 def p_type_module(p, module):
@@ -137,12 +142,22 @@ def p_module_type(p, modifiers, name=3, module_super=4, module_members=-2):
     """
     module_type : module_modifier E_MODULE ID super_module LBRACE module_members RBRACE
     """
-    members = dict()
-    # print module_members
+    members = defaultdict(list)
+    ns = dict()
+
     if module_members:
         for k, v in module_members:
-            members[k] = v if k not in members else members[k] + v
-    return (modifiers, name, module_super, members)
+            members[k] += v
+
+    for k in ['build_depends', 'runtime_depends']:
+        if k in members:
+            exec('func = lambda self: ' + '[' + ', '.join(members[k]) + ']')
+            ns[k] = cached_property(func, attr=k)
+
+    meta = core.Module._meta_for_base(option_types=members['defines'])
+
+    module = meta(name, (), ns)
+    return (name, module)
 
 # (extends ...)?
 @rule
@@ -380,7 +395,7 @@ parser = ply.yacc.yacc(start='my_file',
                        # errorlog=ply.yacc.NullLogger(), debug=False,
                        write_tables=False)
 
-def my_parse(source, filename='<unknown>', **kwargs):
+def my_parse(source, **kwargs):
     lx = lex.lexer.clone()
 
     result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
