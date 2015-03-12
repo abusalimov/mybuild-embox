@@ -276,7 +276,6 @@ def p_empty(p):
     imports :
     entities :
     annotations :
-    module_modifiers :
     """
     return []
 
@@ -286,6 +285,16 @@ def p_list_listed_entries(p, listed_entry, listed_entries):
     module_members : annotated_module_member module_members
     """
     return listed_entry + listed_entries
+
+@rule
+def p_module_modifiers(p, listed_entry, listed_entries):
+    """
+    module_modifiers : module_modifier module_modifiers
+    """
+    if len(listed_entries):
+        raise NotImplementedError("Several module modofiers are not supported")
+
+    return listed_entry
 
 @rule
 def p_list_entries(p, entry, entries=-1):
@@ -305,10 +314,30 @@ def p_list_listed_entry(p, value):
     filename_list :  filename
     parameters_list : parameter
     reference_list : reference
-    module_modifier : E_STATIC
-    module_modifier :  E_ABSTRACT
     """
     return [value]
+
+@rule
+def p_empty_modifier_none(p):
+    """
+    module_modifier :
+    """
+    return core.Module
+
+@rule
+def p_module_modifier_abstract(p, value):
+    """
+    module_modifier :  E_ABSTRACT
+    """
+    return core.InterfaceModule
+
+@rule
+def p_module_modifier_static(p, value):
+    """
+    module_modifier : E_STATIC
+    """
+    # TODO Library
+    return core.Module
 
 @rule
 def p_simple_value(p, value):
