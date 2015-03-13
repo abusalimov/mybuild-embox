@@ -65,6 +65,9 @@ def p_annotated_type(p, annotations, member_type):
             func = prepare_property(p, '[{0}]'.format(value))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
+        else:
+            raise NotImplementedError("Unsupported module annotation {0} in {1}"\
+                                      .format(name, module))
 
     return member_type
 
@@ -196,8 +199,8 @@ def p_annotated_module_member(p, annotations, module_member):
         if annotation[0] == NO_RUNTIME:
             module_member = [module_member[1]]
         else:
-            print annotation, module_member
-            raise NotImplementedError("Unsupported annotation")
+            raise NotImplementedError("Unsupported member annotation {0} in {1}"\
+                                      .format(annotation, module_member))
 
     return module_member
 
@@ -223,13 +226,14 @@ def p_module_member_source(p, filename_list=-1):
     return [('files', filename_list)]
 
 @rule
-def p_module_member_unused(p):
+def p_module_member_unused(p, member):
     """
     module_member : E_PROVIDES reference_list
     module_member : E_REQUIRES reference_list
     module_member : E_OBJECT   filename_list
     """
-    raise NotImplementedError("Module member is not supported")
+    raise NotImplementedError("Module member is not supported: " + member)
+    return []
 
 # ( string | number | boolean | type ) name ( = ...)?
 @rule
@@ -438,6 +442,12 @@ def p_qualified_name_without_wildcard(p, qualified_name):
     qualified_name_with_wildcard : qualified_name
     """
     return qualified_name
+
+def p_error(t):
+    if t is not None:
+        raise SyntaxError("Unexpected {0!r} token".format(t.value))
+    else:
+        raise SyntaxError("Premature end of file")
 
 parser = ply.yacc.yacc(start='my_file',
                        # errorlog=ply.yacc.NullLogger(), debug=False,
