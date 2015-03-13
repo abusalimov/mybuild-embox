@@ -15,6 +15,6 @@ class MyFileLoader(pyfile.PyFileLoader):
 
     def _exec_module(self, module):
         source_string = self.get_source(self.name)
-        res = my_parse(source_string)
+        res = my_parse(source_string, self.name, module.__dict__)
         module.__dict__.update(res)
 

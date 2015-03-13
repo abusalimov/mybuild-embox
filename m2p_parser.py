@@ -11,16 +11,24 @@ import ply.yacc
 
 from mybuild import core
 from util.prop import cached_property
+from util.prop import cached_class_property
 
 
-
+# Annotations
 MANDATORY = 'Mandatory'
-
+DEFAULT_IMPL = 'DefaultImpl'
 NO_RUNTIME = 'NoRuntime'
 
 tokens = lex.tokens
 
-# "case sensitive" = true
+def prepare_property(p, return_value):
+    ns = p.lexer.module_globals
+    name = 'aux_func_{0}'.format(p.lexer.aux_func_counter)
+    p.lexer.aux_func_counter += 1
+    exec(name + ' = lambda self: ' + return_value, ns)
+    return ns[name]
+
+
 @rule
 def p_my_file(p, package, imports, entities):
     """
@@ -51,6 +59,12 @@ def p_annotated_type(p, annotations, member_type):
     """
     annotated_type : annotations type
     """
+    module = member_type[1]
+    for name, value in annotations:
+        if name == DEFAULT_IMPL:
+            func = prepare_property(p, '[{0}]'.format(value))
+            module.default_provider = cached_class_property(func,
+                                        attr='default_provider')
 
     return member_type
 
@@ -138,7 +152,7 @@ def p_super_features(p):
 
 # (abstract)? module name (extends ...)? { ... }
 @rule
-def p_module_type(p, modifiers, name=3, module_super=4, module_members=-2):
+def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
     """
     module_type : module_modifier E_MODULE ID super_module LBRACE module_members RBRACE
     """
@@ -151,12 +165,18 @@ def p_module_type(p, modifiers, name=3, module_super=4, module_members=-2):
 
     for k in ['build_depends', 'runtime_depends']:
         if k in members:
-            exec('func = lambda self: ' + '[' + ', '.join(members[k]) + ']')
+            func = prepare_property(p, '[' + ', '.join(members[k]) + ']')
             ns[k] = cached_property(func, attr=k)
 
-    meta = core.Module._meta_for_base(option_types=members['defines'])
+    if super_module is not None:
+        func = prepare_property(p, '[' + name + ', ' + super_module + ']')
+        ns['provides'] = cached_class_property(func, attr='provides')
 
+    ns['__module__'] = p.lexer.filename
+
+    meta = modifier._meta_for_base(option_types=members['defines'])
     module = meta(name, (), ns)
+
     return (name, module)
 
 # (extends ...)?
@@ -167,7 +187,6 @@ def p_super_module(p, super_module=-1):
     """
     return super_module
 
-# TODO annotations
 @rule
 def p_annotated_module_member(p, annotations, module_member):
     """
@@ -424,8 +443,12 @@ parser = ply.yacc.yacc(start='my_file',
                        # errorlog=ply.yacc.NullLogger(), debug=False,
                        write_tables=False)
 
-def my_parse(source, **kwargs):
+def my_parse(source, filename="<unknown>", module_globals={}, **kwargs):
     lx = lex.lexer.clone()
+
+    lx.filename = filename
+    lx.module_globals = module_globals
+    lx.aux_func_counter = 0
 
     result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
     return result
