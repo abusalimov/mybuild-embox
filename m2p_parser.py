@@ -160,7 +160,7 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
     module_type : module_modifier E_MODULE ID super_module LBRACE module_members RBRACE
     """
     members = defaultdict(list)
-    ns = dict()
+    module_class, module_ns = modifier
 
     if module_members:
         for k, v in module_members:
@@ -169,16 +169,16 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
     for k in ['build_depends', 'runtime_depends']:
         if k in members:
             func = prepare_property(p, '[' + ', '.join(members[k]) + ']')
-            ns[k] = cached_property(func, attr=k)
+            module_ns[k] = cached_property(func, attr=k)
 
     if super_module is not None:
         func = prepare_property(p, '[' + name + ', ' + super_module + ']')
-        ns['provides'] = cached_class_property(func, attr='provides')
+        module_ns['provides'] = cached_class_property(func, attr='provides')
 
-    ns['__module__'] = p.lexer.filename
+    module_ns['__module__'] = p.lexer.filename
 
-    meta = modifier._meta_for_base(option_types=members['defines'])
-    module = meta(name, (), ns)
+    meta = module_class._meta_for_base(option_types=members['defines'])
+    module = meta(name, (), module_ns)
 
     return (name, module)
 
@@ -345,22 +345,29 @@ def p_empty_modifier_none(p):
     """
     module_modifier :
     """
-    return core.Module
+    func = prepare_property(p, '[tool.cc, tool.gen_headers]')
+    ns = dict(tools=cached_property(func, attr='tools'))
+    return core.Module, ns
 
 @rule
 def p_module_modifier_abstract(p, value):
     """
     module_modifier :  E_ABSTRACT
     """
-    return core.InterfaceModule
+    func = prepare_property(p, '[]')
+    ns = dict(tools=cached_property(func, attr='tools'))
+    return core.InterfaceModule, ns
 
 @rule
 def p_module_modifier_static(p, value):
     """
     module_modifier : E_STATIC
     """
-    # TODO Library
-    return core.Module
+    func = prepare_property(p, '[tool.cc_lib]')
+    static = prepare_property(p, 'True')
+    ns = dict(tools=cached_property(func, attr='tools'),
+              isstatic=cached_property(static, attr='isstatic'))
+    return core.Module, ns
 
 @rule
 def p_simple_value(p, value):
