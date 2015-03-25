@@ -62,7 +62,7 @@ def p_annotated_type(p, annotations, member_type):
     module = member_type[1]
     for name, value in annotations:
         if name == DEFAULT_IMPL:
-            func = prepare_property(p, '[{0}]'.format(value))
+            func = prepare_property(p, '{0}'.format(value))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
         else:
@@ -170,6 +170,10 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
         if k in members:
             func = prepare_property(p, '[' + ', '.join(members[k]) + ']')
             module_ns[k] = cached_property(func, attr=k)
+
+    if 'files' in members:
+        func = prepare_property(p, '[' + ', '.join(members['files']) + ']')
+        module_ns['files'] = cached_property(func, attr='files')
 
     if super_module is not None:
         func = prepare_property(p, '[' + name + ', ' + super_module + ']')
@@ -334,9 +338,15 @@ def p_list_entries(p, entry, entries=-1):
 @rule
 def p_list_listed_entry(p, value):
     """
-    filename_list :  filename
     parameters_list : parameter
     reference_list : reference
+    """
+    return [value]
+
+@rule
+def p_list_listed_filename(p, value):
+    """
+    filename_list :  filename
     """
     return [value]
 
@@ -372,10 +382,17 @@ def p_module_modifier_static(p, value):
 @rule
 def p_simple_value(p, value):
     """
-    filename : STRING
     qualified_name : ID
     """
     return value
+    ['\"' + value + '\"']
+
+@rule
+def p_simple_filename(p, value):
+    """
+    filename : STRING
+    """
+    return '\"' + value + '\"'
 
 # -------------------------------------------------
 # @annotations.
