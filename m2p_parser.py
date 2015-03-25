@@ -166,14 +166,10 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
         for k, v in module_members:
             members[k] += v
 
-    for k in ['build_depends', 'runtime_depends']:
-        if k in members:
-            func = prepare_property(p, '[' + ', '.join(members[k]) + ']')
-            module_ns[k] = cached_property(func, attr=k)
-
-    if 'files' in members:
-        func = prepare_property(p, '[' + ', '.join(members['files']) + ']')
-        module_ns['files'] = cached_property(func, attr='files')
+    for key in ['build_depends', 'runtime_depends', 'includes', 'files']:
+        if key in members:
+            func = prepare_property(p, '[' + ', '.join(members[key]) + ']')
+            module_ns[key] = cached_property(func, attr=key)
 
     if super_module is not None:
         func = prepare_property(p, '[' + name + ', ' + super_module + ']')
@@ -199,13 +195,16 @@ def p_annotated_module_member(p, annotations, module_member):
     """
     annotated_module_member : annotations module_member
     """
-    for annotation in annotations:
-        if annotation[0] == NO_RUNTIME:
+    for name, value in annotations:
+        if name == NO_RUNTIME:
+            # Only build depends
             module_member = [module_member[1]]
+        elif name == INCLUDE_PATH:
+            include = value.replace('(', '{').replace(')', '}')
+            module_member.append(('includes', ['\"' + include + '\"']))
         else:
             raise NotImplementedError("Unsupported member annotation {0} in {1}"\
-                                      .format(annotation, module_member))
-
+                                      .format(name, module_member))
     return module_member
 
 @rule
