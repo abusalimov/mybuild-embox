@@ -314,16 +314,6 @@ def p_list_listed_entries(p, listed_entry, listed_entries):
     return listed_entry + listed_entries
 
 @rule
-def p_module_modifiers(p, listed_entry, listed_entries):
-    """
-    module_modifiers : module_modifier module_modifiers
-    """
-    if len(listed_entries):
-        raise NotImplementedError("Several module modofiers are not supported")
-
-    return listed_entry
-
-@rule
 def p_list_entries(p, entry, entries=-1):
     """
     filename_list : filename COMMA filename_list
