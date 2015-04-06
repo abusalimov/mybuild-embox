@@ -18,6 +18,7 @@ from util.prop import cached_class_property
 MANDATORY = 'Mandatory'
 DEFAULT_IMPL = 'DefaultImpl'
 NO_RUNTIME = 'NoRuntime'
+INCLUDE_PATH = 'IncludePath'
 
 tokens = lex.tokens
 
