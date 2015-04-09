@@ -363,7 +363,7 @@ def p_module_modifier_static(p, value):
     """
     module_modifier : E_STATIC
     """
-    func = prepare_property(p, '[tool.cc_lib]')
+    func = prepare_property(p, '[tool.cc_lib, tool.gen_headers]')
     static = prepare_property(p, 'True')
     ns = dict(tools=cached_property(func, attr='tools'),
               isstatic=cached_property(static, attr='isstatic'))
