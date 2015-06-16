@@ -2,7 +2,7 @@ import itertools
 from collections import defaultdict
 from operator import itemgetter
 
-import m2p_lex as lex
+from mybuild_embox.lang_legacy import lex
 from mylang.helpers import rule
 import ply.yacc
 
