@@ -494,9 +494,10 @@ def p_qualified_name_without_wildcard(p, qualified_name):
 
 def p_error(t):
     if t is not None:
-        raise SyntaxError("Unexpected {0!r} token".format(t.value))
+        raise MySyntaxError("Unexpected {0!r} token".format(t.value),
+                            lex.loc(t))
     else:
-        raise SyntaxError("Premature end of file")
+        raise MySyntaxError("Premature end of file")
 
 parser = ply.yacc.yacc(start='my_file',
                        # errorlog=ply.yacc.NullLogger(), debug=False,
