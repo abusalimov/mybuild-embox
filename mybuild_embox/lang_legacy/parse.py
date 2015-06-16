@@ -72,7 +72,7 @@ def p_annotated_type(p, annotations, member_type):
     """
     annotated_type : annotations type
     """
-    module = member_type[1]
+    module_name, module = member_type
     for name, value in annotations:
         func = prepare_property(p, value)
         setattr(module, name, cached_class_property(func, attr=name))
@@ -81,6 +81,9 @@ def p_annotated_type(p, annotations, member_type):
             func = prepare_property(p, 'self.{}'.format(name))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
+
+    p.lexer.module_globals[module_name] = module
+    p.lexer.package_globals[module_name] = module
 
     return member_type
 
@@ -509,10 +512,16 @@ def my_parse(source, filename="<unknown>", module_globals=None, **kwargs):
     lx = lex.lexer.clone()
 
     lx.fileinfo = Fileinfo(source, filename)
+
     if module_globals is None:
-        module_globals = {'__name__': '__main__'}
+        module_globals = {'__name__': '__main__', '__package__': None}
     lx.module_globals = module_globals
-    lx.aux_func_counter = 0
+
+    if module_globals['__package__'] is not None:
+        package_globals = sys.modules[module_globals['__package__']].__dict__
+    else:
+        package_globals = {}
+    lx.package_globals = package_globals
 
     try:
         result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
