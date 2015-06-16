@@ -1,5 +1,7 @@
 from _compat import *
 
+from keyword import iskeyword
+
 import ply.lex
 
 
@@ -82,6 +84,8 @@ t_E_WILDCARD = r'\.\*'
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z_0-9]*'
     t.type = reserved.get(t.value,'ID')    # Check for reserved words
+    if iskeyword(t.value):
+        t.value += '_'
     return t
 
 # A regular expression rule with some action code
