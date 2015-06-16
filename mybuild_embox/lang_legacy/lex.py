@@ -67,6 +67,11 @@ reserved = {
     'string': 'E_STRING',
     'number': 'E_NUMBER',
     'boolean': 'E_BOOLEAN',
+
+    # XXX to parse .config files using the same lexer/parser
+    # this way, configuration == module
+    'configuration': 'E_MODULE',
+    'include': 'E_DEPENDS',
 }
 tokens.extend(set(reserved.values()))
 
