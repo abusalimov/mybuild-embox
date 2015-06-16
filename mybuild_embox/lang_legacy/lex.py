@@ -91,8 +91,11 @@ def t_ID(t):
 
 # A regular expression rule with some action code
 def t_NUMBER(t):
-    r'0x[0-9a-f]+|\d+'
-    t.value = int(t.value, base=0)
+    r'(?i)0x[0-9a-f]+|0[0-7]*|[1-9]\d*'
+    if t.value[0] == '0' and t.value[:2].lower() != '0x':
+        t.value = int(t.value.lstrip('0') or '0', base=8)
+    else:
+        t.value = int(t.value, base=0)
     return t
 
 # String literal
