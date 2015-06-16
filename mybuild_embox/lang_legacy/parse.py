@@ -232,7 +232,7 @@ def p_annotated_module_member(p, annotations, module_member):
 @rule
 def p_module_member_depends(p, depends_list=-1):
     """
-    module_member : E_DEPENDS  reference_list
+    module_member : E_DEPENDS  reference_wopts_list
     """
     return [('runtime_depends', depends_list), ('build_depends', depends_list)]
 
@@ -342,6 +342,7 @@ def p_list_entries(p, entry, entries=-1):
     filename_list : filename COMMA filename_list
     parameters_list : parameter COMMA parameters_list
     reference_list : reference COMMA reference_list
+    reference_wopts_list : reference_wopts COMMA reference_wopts_list
     annotations : annotation annotations
     entities : annotated_type entities
     """
@@ -353,6 +354,7 @@ def p_list_listed_entry(p, value):
     """
     parameters_list : parameter
     reference_list : reference
+    reference_wopts_list : reference_wopts
     """
     return [value]
 
@@ -444,9 +446,18 @@ def p_value(p, val):
     value : NUMBER
     value : reference
     reference : qualified_name
+    reference_wopts : reference
     simple_reference : ID
     """
     return val
+
+@rule
+def p_reference_wopts(p, reference=1, parameters_list=3):
+    """
+    reference_wopts : reference LPAREN parameters_list RPAREN
+    """
+    return reference + ', '.join(map('{0[0]!s}={0[1]!r}'.format,
+                                     parameters_list)).join('()')
 
 @rule
 def p_value_bool(p, val):
