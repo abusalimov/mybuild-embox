@@ -195,11 +195,14 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
     if super_module is not None:
         func = prepare_property(p, '[' + name + ', ' + super_module + ']')
         module_ns['provides'] = cached_class_property(func, attr='provides')
+        bases = (prepare_property(p, super_module)(None),)
+    else:
+        bases = ()
 
     module_ns['__module__'] = p.lexer.module_globals['__name__']
 
     meta = module_class._meta_for_base(option_types=members['defines'])
-    module = meta(name, (), module_ns)
+    module = meta(name, bases, module_ns)
 
     return (name, module)
 
