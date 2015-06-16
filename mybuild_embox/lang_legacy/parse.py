@@ -1,3 +1,4 @@
+import ast
 import itertools
 from collections import defaultdict
 from operator import itemgetter
@@ -29,11 +30,15 @@ def ploc(p, i=1):
     return Location(p.lexer.fileinfo, p.lineno(i), p.lexpos(i))
 
 def prepare_property(p, return_value):
-    ns = p.lexer.module_globals
-    name = 'aux_func_{0}'.format(p.lexer.aux_func_counter)
-    p.lexer.aux_func_counter += 1
-    exec(name + ' = lambda self: ' + return_value, ns)
-    return ns[name]
+    try:
+        ast_root = ast.parse('lambda self: ({})'.format(return_value),
+                             p.lexer.fileinfo.name, mode='eval')
+        ast.increment_lineno(ast_root, p.lineno(0)-1)
+        code = compile(ast_root,
+                       p.lexer.fileinfo.name, mode='eval')
+        return eval(code, p.lexer.module_globals)
+    except SyntaxError as e:
+        raise MySyntaxError(e.args)
 
 
 @rule
