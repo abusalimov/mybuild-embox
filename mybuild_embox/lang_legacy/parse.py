@@ -2,9 +2,13 @@ import itertools
 from collections import defaultdict
 from operator import itemgetter
 
-from mybuild_embox.lang_legacy import lex
-from mylang.helpers import rule
 import ply.yacc
+
+from mybuild_embox.lang_legacy import lex
+from mylang.location import Fileinfo
+from mylang.location import Location
+from mylang.helpers import rule
+from mylang.parse import MySyntaxError
 
 from mybuild import core
 from util.prop import cached_property
@@ -18,6 +22,11 @@ NO_RUNTIME = 'NoRuntime'
 INCLUDE_PATH = 'IncludePath'
 
 tokens = lex.tokens
+
+
+def ploc(p, i=1):
+    i = min(i, len(p)-1)
+    return Location(p.lexer.fileinfo, p.lineno(i), p.lexpos(i))
 
 def prepare_property(p, return_value):
     ns = p.lexer.module_globals
@@ -50,7 +59,8 @@ def p_imports(p):
     imports : import imports
     import : E_IMPORT qualified_name_with_wildcard
     """
-    raise NotImplementedError("Imports are not supported")
+    raise NotImplementedError("Imports are not supported",
+                              ploc(p))
 
 @rule
 def p_annotated_type(p, annotations, member_type):
@@ -64,8 +74,9 @@ def p_annotated_type(p, annotations, member_type):
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
         else:
-            raise NotImplementedError("Unsupported module annotation {0} in {1}"\
-                                      .format(name, module))
+            raise NotImplementedError("Unsupported module annotation {} in {}"
+                                      .format(name, module),
+                                      ploc(p))
 
     return member_type
 
@@ -81,7 +92,8 @@ def p_type_interface(p, interface):
     """
     type : interface
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # -------------------------------------------------
 # annotation type.
@@ -96,7 +108,8 @@ def p_annotation_type(p):
     annotation_members :
     annotated_annotation_member : annotations option
     """
-    raise NotImplementedError("Annotations are not supported")
+    raise NotImplementedError("Annotations are not supported",
+                              ploc(p))
 
 
 # -------------------------------------------------
@@ -109,7 +122,8 @@ def p_interface(p):
     """
     interface : E_INTERFACE ID super_interfaces LBRACE features RBRACE
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # (extends ...)?
 @rule
@@ -118,7 +132,8 @@ def p_super_interfaces(p):
     super_interfaces : E_EXTENDS reference_list
     super_interfaces :
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # annotated_interface_member*
 @rule
@@ -128,7 +143,8 @@ def p_features(p):
     features :
     annotated_feature : annotations feature
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # feature name (extends ...)?
 @rule
@@ -136,7 +152,8 @@ def p_feature(p):
     """
     feature : E_FEATURE ID super_features
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # (extends ...)?
 @rule
@@ -145,7 +162,8 @@ def p_super_features(p):
     super_features : E_EXTENDS reference_list
     super_features :
     """
-    raise NotImplementedError("Interfaces and features are not supported")
+    raise NotImplementedError("Interfaces and features are not supported",
+                              ploc(p))
 
 # -------------------------------------------------
 # modules.
@@ -173,7 +191,7 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
         func = prepare_property(p, '[' + name + ', ' + super_module + ']')
         module_ns['provides'] = cached_class_property(func, attr='provides')
 
-    module_ns['__module__'] = p.lexer.filename
+    module_ns['__module__'] = p.lexer.module_globals['__name__']
 
     meta = module_class._meta_for_base(option_types=members['defines'])
     module = meta(name, (), module_ns)
@@ -201,8 +219,9 @@ def p_annotated_module_member(p, annotations, module_member):
             include = value.replace('(', '{').replace(')', '}')
             module_member.append(('includes', ['\"' + include + '\"']))
         else:
-            raise NotImplementedError("Unsupported member annotation {0} in {1}"\
-                                      .format(name, module_member))
+            raise NotImplementedError("Unsupported member annotation {} in {}"
+                                      .format(name, module_member),
+                                      ploc(p))
     return module_member
 
 @rule
@@ -233,7 +252,8 @@ def p_module_member_unused(p, member):
     module_member : E_REQUIRES reference_list
     module_member : E_OBJECT   filename_list
     """
-    raise NotImplementedError("Module member is not supported: " + member)
+    raise NotImplementedError("Module member is not supported: " + member,
+                              ploc(p))
     return []
 
 # ( string | number | boolean | type ) name ( = ...)?
@@ -274,7 +294,8 @@ def p_option_type_reference(p):
     """
     option_type : reference
     """
-    raise NotImplementedError("References in options are not supported")
+    raise NotImplementedError("References in options are not supported",
+                              ploc(p))
 
 @rule
 def p_option_default_value(p, value=-1):
@@ -445,7 +466,8 @@ def p_qualified_name_with_wildcard(p):
     """
     qualified_name_with_wildcard : qualified_name E_WILDCARD
     """
-    raise NotImplementedError("Wildcard names are not supported")
+    raise NotImplementedError("Wildcard names are not supported",
+                              ploc(p))
 
 @rule
 def p_qualified_name_without_wildcard(p, qualified_name):
@@ -464,14 +486,20 @@ parser = ply.yacc.yacc(start='my_file',
                        # errorlog=ply.yacc.NullLogger(), debug=False,
                        write_tables=False)
 
-def my_parse(source, filename="<unknown>", module_globals={}, **kwargs):
+def my_parse(source, filename="<unknown>", module_globals=None, **kwargs):
     lx = lex.lexer.clone()
 
-    lx.filename = filename
+    lx.fileinfo = Fileinfo(source, filename)
+    if module_globals is None:
+        module_globals = {'__name__': '__main__'}
     lx.module_globals = module_globals
     lx.aux_func_counter = 0
 
-    result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
+    try:
+        result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
+    except (MySyntaxError, NotImplementedError) as e:
+        raise SyntaxError(*e.args)
+
     return result
 
 if __name__ == "__main__":

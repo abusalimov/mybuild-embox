@@ -6,6 +6,17 @@ import ast
 import ply.lex
 
 
+from mylang.location import Location
+
+
+def loc(t):
+    try:
+        fileinfo = t.lexer.fileinfo
+    except AttributeError:
+        pass
+    else:
+        return Location(fileinfo, t.lineno, t.lexpos)
+
 # Derived from ANSI C example.
 
 tokens = [
