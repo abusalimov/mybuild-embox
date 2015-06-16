@@ -43,10 +43,7 @@ def t_RBRACE(t):   r'\}'; t.lexer.ignore_newline_stack.pop();     return t
 # Delimeters
 t_COMMA            = r','
 t_PERIOD           = r'\.'
-t_COLON            = r':'
-t_DOUBLECOLON      = r'::'
 t_EQUALS           = r'='
-t_SEMI             = r';'
 
 
 reserved = {
@@ -99,7 +96,7 @@ def t_error(t):
                       loc(t).to_syntax_error_tuple())
 
 
-lexer = ply.lex.lex(optimize=1, lextab=None)
+lexer = ply.lex.lex()
 lexer.ignore_newline_stack = [0]
 
 if __name__ == "__main__":
