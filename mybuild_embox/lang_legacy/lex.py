@@ -83,8 +83,9 @@ t_E_WILDCARD = r'\.\*'
 
 # Identifiers
 def t_ID(t):
-    r'[a-zA-Z_][a-zA-Z_0-9]*'
+    r'\^?[a-zA-Z_][a-zA-Z_0-9]*'
     t.type = reserved.get(t.value,'ID')    # Check for reserved words
+    t.value = t.value.lstrip('^')
     if iskeyword(t.value):
         t.value += '_'
     return t
