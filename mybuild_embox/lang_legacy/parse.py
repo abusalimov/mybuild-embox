@@ -553,13 +553,13 @@ def p_error(t):
 # =================================================
 
 @rule
-def p_test(p, test):
-    """test : pytest"""
-    return test
+def p_expr(p, expr):
+    """expr : pyexpr"""
+    return expr
 
 @rule
-def p_pytest(p, stub, builders):
-    """pytest : pystub trailers"""
+def p_pyexpr(p, stub, builders):
+    """pyexpr : pystub trailers"""
     return build_chain(builders, stub)
 
 @rule
@@ -585,19 +585,19 @@ def p_string(p, s):
     return lambda: ast.Str(s)
 
 @rule_wloc
-def p_pyatom_parens_or_tuple(p, testlist=2):  # (item, ...)
-    """pyatom : LPAREN testlist RPAREN"""
-    test_l, test_el = testlist
-    if test_el is not None:
-        return lambda: test_el
+def p_pyatom_parens_or_tuple(p, exprlist=2):  # (item, ...)
+    """pyatom : LPAREN exprlist RPAREN"""
+    expr_l, expr_el = exprlist
+    if expr_el is not None:
+        return lambda: expr_el
     else:
-        return lambda: ast.Tuple(test_l, ast.Load())
+        return lambda: ast.Tuple(expr_l, ast.Load())
 
 @rule_wloc
-def p_pyatom_list(p, testlist=2):  # [item, ...]
-    """pyatom : LBRACKET testlist RBRACKET"""
-    test_l = testlist[0]
-    return lambda: ast.List(test_l, ast.Load())
+def p_pyatom_list(p, exprlist=2):  # [item, ...]
+    """pyatom : LBRACKET exprlist RBRACKET"""
+    expr_l = exprlist[0]
+    return lambda: ast.List(expr_l, ast.Load())
 
 @rule_wloc
 def p_pyatom_dict(p, kv_pairs=2):  # [key: value, ...], [:]
@@ -612,7 +612,7 @@ def p_pyatom_dict(p, kv_pairs=2):  # [key: value, ...], [:]
 
 @rule
 def p_dictent(p, key, value=3):
-    """dictent : test COLON test"""
+    """dictent : expr COLON expr"""
     return key, value
 
 
@@ -647,12 +647,12 @@ def p_call(p, kw_arg_pairs=2):  # x(arg, kw=arg, ...)
 
 @rule
 def p_argument_pos(p, value):
-    """argument : test"""
+    """argument : expr"""
     return None, value
 
 @rule
 def p_argument_kw(p, key, value=3):
-    """argument : ID EQUALS test"""
+    """argument : ID EQUALS expr"""
     kw_wloc = key, ploc(p)
     return kw_wloc, value
 
@@ -664,30 +664,30 @@ def p_trailer_attr_or_name(p, name=-1):  # x.attr or name
 
 @rule_wloc
 def p_trailer_item(p, item=2):  # x[item]
-    """trailer : LBRACKET test RBRACKET"""
+    """trailer : LBRACKET expr RBRACKET"""
     return lambda expr: ast.Subscript(expr, ast.Index(item), ast.Load())
 
 
-# testlist is a pair of [list of elements] and a single element (if any)
+# exprlist is a pair of [list of elements] and a single element (if any)
 
 @rule
-def p_testlist(p, l):
-    """testlist : testlist_plus mb_comma"""
+def p_exprlist(p, l):
+    """exprlist : exprlist_plus mb_comma"""
     return l
 
 @rule
-def p_testlist_empty(p):
-    """testlist :"""
+def p_exprlist_empty(p):
+    """exprlist :"""
     return [], None
 
 @rule
-def p_testlist_single(p, el):
-    """testlist_plus : test"""
+def p_exprlist_single(p, el):
+    """exprlist_plus : expr"""
     return [el], el
 
 @rule
-def p_testlist_list(p, l_el, el=-1):
-    """testlist_plus : testlist_plus COMMA test"""
+def p_exprlist_list(p, l_el, el=-1):
+    """exprlist_plus : exprlist_plus COMMA expr"""
     l, _ = l_el
     l.append(el)
     return l, None
