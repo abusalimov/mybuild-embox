@@ -26,7 +26,8 @@ tokens = [
     # Delimeters ( ) { } , . $ = ; |
     'LPAREN',   'RPAREN',
     'LBRACE',   'RBRACE',
-    'COMMA', 'PERIOD', 'EQUALS',
+    'LBRACKET', 'RBRACKET',
+    'COMMA', 'PERIOD', 'COLON', 'EQUALS',
 
     #######
 
@@ -57,6 +58,7 @@ def t_RBRACE(t):   r'\}'; t.lexer.ignore_newline_stack.pop();     return t
 # Delimeters
 t_COMMA            = r','
 t_PERIOD           = r'\.'
+t_COLON            = r':'
 t_EQUALS           = r'='
 
 

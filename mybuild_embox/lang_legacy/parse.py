@@ -4,6 +4,7 @@ from _compat import *
 
 
 import ast
+import functools
 import itertools
 import sys
 from collections import defaultdict
@@ -31,9 +32,53 @@ INCLUDE_PATH = 'IncludePath'
 tokens = lex.tokens
 
 
+# Location tracking.
+
+def node_loc(ast_node, p):
+    return Location.from_ast_node(ast_node, p.lexer.fileinfo)
+
 def ploc(p, i=1):
     i = min(i, len(p)-1)
     return Location(p.lexer.fileinfo, p.lineno(i), p.lexpos(i))
+
+def set_loc(ast_node, loc):
+    return loc.init_ast_node(ast_node)
+
+def set_loc_p(ast_node, p, i=1):
+    return set_loc(ast_node, ploc(p, i))
+
+copy_loc = ast.copy_location
+
+
+def wloc(func):
+    @functools.wraps(func)
+    def decorated(p, *symbols):
+        return func(p, *symbols), ploc(p)
+    return decorated
+
+def rule_wloc(func):
+    return rule(wloc(func))
+
+
+def name_builder(name):
+    def builder(expr=None):
+        if expr is not None:
+            return ast.Attribute(expr, name, ast.Load())
+        else:
+            return ast.x_Name(name)
+    return builder
+
+def build_node(builder_wloc, expr=None):
+    builder, loc = builder_wloc
+    if not callable(builder):
+        builder = name_builder(builder)
+    return set_loc(builder(expr) if expr is not None else builder(), loc)
+
+def build_chain(builder_wlocs, expr=None):
+    for builder_wloc in builder_wlocs:
+        expr = build_node(builder_wloc, expr)
+    return expr
+
 
 def prepare_property(p, return_value):
     try:
@@ -501,6 +546,219 @@ def p_error(t):
                             lex.loc(t))
     else:
         raise MySyntaxError("Premature end of file")
+
+
+# =================================================
+# These are derived from a new mylang parser.
+# =================================================
+
+@rule
+def p_test(p, test):
+    """test : pytest
+       test : mystub"""
+    return test
+
+@rule
+def p_pytest(p, stub, builders):
+    """pytest : pystub trailers
+       pytest : mystub trailers_plus"""
+    return build_chain(builders, stub)
+
+@rule
+def p_stub(p, builder):
+    """pystub : name
+       pystub : pyatom
+       mystub : myatom"""
+    return build_node(builder)
+
+
+@rule_wloc
+def p_myatom_typedef(p, metatype, body):
+    """myatom : pytest typebody"""
+    return lambda: build_typedef(p, body, metatype)
+
+@rule_wloc
+def p_myatom_typedef_named(p, metatype, qualname, mb_call_builder, body):
+    """myatom : pytest qualname mb_call typebody"""
+    return lambda: build_typedef(p, body, metatype, qualname, mb_call_builder)
+
+
+@rule_wloc
+def p_pyatom_num(p, n):
+    """pyatom : NUMBER"""
+    return lambda: ast.Num(n)
+
+@rule
+def p_pyatom_string(p, string):
+    """pyatom : string"""
+    return string
+
+@rule_wloc
+def p_string(p, s):
+    """string : STRING"""
+    return lambda: ast.Str(s)
+
+@rule_wloc
+def p_pyatom_parens_or_tuple(p, testlist=2):  # (item, ...)
+    """pyatom : LPAREN testlist RPAREN"""
+    test_l, test_el = testlist
+    if test_el is not None:
+        return lambda: test_el
+    else:
+        return lambda: ast.Tuple(test_l, ast.Load())
+
+@rule_wloc
+def p_pyatom_list(p, testlist=2):  # [item, ...]
+    """pyatom : LBRACKET testlist RBRACKET"""
+    test_l = testlist[0]
+    return lambda: ast.List(test_l, ast.Load())
+
+@rule_wloc
+def p_pyatom_dict(p, kv_pairs=2):  # [key: value, ...], [:]
+    """pyatom : LBRACKET dictents RBRACKET
+       pyatom : LBRACKET COLON RBRACKET"""
+    if kv_pairs != ':':
+        keys, values = map(list, zip(*kv_pairs))
+    else:
+        keys, values = [], []
+
+    return lambda: ast.Dict(keys, values)
+
+@rule
+def p_dictent(p, key, value=3):
+    """dictent : test COLON test"""
+    return key, value
+
+
+@rule
+def p_trailer_call(p, call):
+    """trailer : call
+       mb_call : call
+       mb_call : empty"""
+    return call
+
+@rule_wloc
+def p_call(p, kw_arg_pairs=2):  # x(arg, kw=arg, ...)
+    """call : LPAREN arguments RPAREN"""
+    args      = []  # positional arguments
+    keywords  = []  # keyword arguments
+    seen_kw   = set()
+
+    for kw_wloc, arg in kw_arg_pairs:
+        if kw_wloc is None:
+            if seen_kw:
+                raise MySyntaxError('non-keyword arg after keyword arg',
+                                    node_loc(arg, p))
+            args.append(arg)
+
+        else:
+            kw, loc = kw_wloc
+            if kw in seen_kw:
+                raise MySyntaxError('keyword argument repeated', loc)
+            else:
+                seen_kw.add(kw)
+            keywords.append(set_loc(ast.keyword(kw, arg), loc))
+
+    return lambda expr: ast.x_Call(expr, args, keywords)
+
+@rule
+def p_argument_pos(p, value):
+    """argument : test"""
+    return None, value
+
+@rule
+def p_argument_kw(p, key, value=3):
+    """argument : ID EQUALS test"""
+    kw_wloc = key, ploc(p)
+    return kw_wloc, value
+
+@rule_wloc
+def p_trailer_attr_or_name(p, name=-1):  # x.attr or name
+    """trailer : PERIOD ID
+       name    : ID"""
+    return name
+
+@rule_wloc
+def p_trailer_item(p, item=2):  # x[item]
+    """trailer : LBRACKET test RBRACKET"""
+    return lambda expr: ast.Subscript(expr, ast.Index(item), ast.Load())
+
+
+# testlist is a pair of [list of elements] and a single element (if any)
+
+@rule
+def p_testlist(p, l):
+    """testlist : testlist_plus mb_comma"""
+    return l
+
+@rule
+def p_testlist_empty(p):
+    """testlist :"""
+    return [], None
+
+@rule
+def p_testlist_single(p, el):
+    """testlist_plus : test"""
+    return [el], el
+
+@rule
+def p_testlist_list(p, l_el, el=-1):
+    """testlist_plus : testlist_plus COMMA test"""
+    l, _ = l_el
+    l.append(el)
+    return l, None
+
+
+# generic (possibly comma-separated, and with trailing comma) list parsing
+
+@rule
+def p_list_head(p, el):
+    """
+    qualname           :  name
+
+    arguments_plus     :  argument
+    dictents_plus      :  dictent
+    """
+    return [el]
+
+@rule
+def p_list_tail(p, l, el=-1):
+    """
+    qualname           :  qualname        PERIOD     name
+
+    arguments_plus     :  arguments_plus  COMMA      argument
+    dictents_plus      :  dictents_plus   COMMA      dictent
+
+    trailers_plus      :  trailers                   trailer
+    """
+    l.append(el)
+    return l
+
+@rule
+def p_list_alias(p, l):
+    """
+    trailers             :  empty_list
+    trailers             :  trailers_plus
+
+    arguments          :  arguments_plus  mb_comma
+    dictents           :  dictents_plus   mb_comma
+
+    arguments          :  empty_list
+    """
+    return l
+
+@rule
+def p_empty_list(p):
+    """empty_list :"""
+    return []
+
+def p_mb_comma(p):
+    """mb_comma :
+       mb_comma : COMMA"""
+
+
+
+# =================================================
 
 parser = ply.yacc.yacc(start='my_file',
                        errorlog=ply.yacc.NullLogger(), debug=False,
