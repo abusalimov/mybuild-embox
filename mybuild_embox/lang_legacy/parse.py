@@ -74,14 +74,13 @@ def p_annotated_type(p, annotations, member_type):
     """
     module = member_type[1]
     for name, value in annotations:
+        func = prepare_property(p, value)
+        setattr(module, name, cached_class_property(func, attr=name))
+
         if name == DEFAULT_IMPL:
-            func = prepare_property(p, '{0}'.format(value))
+            func = prepare_property(p, 'self.{}'.format(name))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
-        else:
-            raise NotImplementedError("Unsupported module annotation {} in {}"
-                                      .format(name, module),
-                                      ploc(p))
 
     return member_type
 
