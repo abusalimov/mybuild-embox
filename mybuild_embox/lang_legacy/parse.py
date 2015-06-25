@@ -554,33 +554,19 @@ def p_error(t):
 
 @rule
 def p_test(p, test):
-    """test : pytest
-       test : mystub"""
+    """test : pytest"""
     return test
 
 @rule
 def p_pytest(p, stub, builders):
-    """pytest : pystub trailers
-       pytest : mystub trailers_plus"""
+    """pytest : pystub trailers"""
     return build_chain(builders, stub)
 
 @rule
 def p_stub(p, builder):
     """pystub : name
-       pystub : pyatom
-       mystub : myatom"""
+       pystub : pyatom"""
     return build_node(builder)
-
-
-@rule_wloc
-def p_myatom_typedef(p, metatype, body):
-    """myatom : pytest typebody"""
-    return lambda: build_typedef(p, body, metatype)
-
-@rule_wloc
-def p_myatom_typedef_named(p, metatype, qualname, mb_call_builder, body):
-    """myatom : pytest qualname mb_call typebody"""
-    return lambda: build_typedef(p, body, metatype, qualname, mb_call_builder)
 
 
 @rule_wloc
@@ -632,9 +618,7 @@ def p_dictent(p, key, value=3):
 
 @rule
 def p_trailer_call(p, call):
-    """trailer : call
-       mb_call : call
-       mb_call : empty"""
+    """trailer : call"""
     return call
 
 @rule_wloc
