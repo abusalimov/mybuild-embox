@@ -84,6 +84,8 @@ reserved = {
     # this way, configuration == module
     'configuration': 'E_MODULE',
     'include': 'E_DEPENDS',
+
+    '__my_debug_print__': 'E_PRINT',
 }
 tokens.extend(set(reserved.values()))
 

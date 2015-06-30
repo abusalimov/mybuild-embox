@@ -123,10 +123,22 @@ def py_eval(p, expr, **self_arg_value):
 @rule
 def p_my_file(p, package, imports, entities):
     """
-    my_file : package imports entities
+    my_file : package imports entities debug
     """
     # print package
     return dict(entities)
+
+@rule
+def p_debug(p, expr=-1):
+    """
+    debug : E_PRINT expr
+    """
+    print(py_eval(p, expr, parser=p.parser), file=sys.stderr)
+
+def p_nodebug(p):
+    """
+    debug :
+    """
 
 # package?
 @rule
