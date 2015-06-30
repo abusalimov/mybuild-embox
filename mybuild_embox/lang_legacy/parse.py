@@ -82,14 +82,25 @@ def build_chain(builder_wlocs, expr=None):
 
 def py_compile_func(p, expr):
     try:
-        ast_root = ast.parse('lambda self: ({})'.format(expr),
-                             p.lexer.fileinfo.name, mode='eval')
-        ast.increment_lineno(ast_root, p.lineno(0)-1)
-        code = compile(ast_root,
-                       p.lexer.fileinfo.name, mode='eval')
+        if isinstance(expr, ast.AST):
+            args = ast.x_arguments([ast.x_arg('self')])
+            ast_root = ast.Expression(copy_loc(ast.Lambda(args, expr),
+                                               expr))
+            ast.fix_missing_locations(ast_root)
+        else:
+            ast_root = ast.parse('lambda self: ({})'.format(expr),
+                                 p.lexer.fileinfo.name, mode='eval')
+            ast.increment_lineno(ast_root, p.lineno(0)-1)
+
+        code = compile(ast_root, p.lexer.fileinfo.name, mode='eval')
         return eval(code, p.lexer.module_globals)
+
     except SyntaxError as e:
-        raise MySyntaxError(e.args)
+        raise MySyntaxError(*e.args)
+
+    except:
+        print(ast.dump(ast_root, include_attributes=True))
+        raise
 
 
 @rule
