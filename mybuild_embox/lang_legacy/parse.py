@@ -108,16 +108,6 @@ def p_package(p, qualified_name=-1):
     """
     return qualified_name
 
-# import*
-@rule
-def p_imports(p):
-    """
-    imports : import imports
-    import : E_IMPORT qualified_name_with_wildcard
-    """
-    raise NotImplementedError("Imports are not supported",
-                              ploc(p))
-
 @rule
 def p_annotated_type(p, annotations, member_type):
     """
@@ -145,83 +135,21 @@ def p_type_module(p, module):
     """
     return module
 
-@rule
-def p_type_interface(p, interface):
-    """
-    type : interface
-    """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
-
 # -------------------------------------------------
 # annotation type.
-# -------------------------------------------------
-
-@rule
-def p_annotation_type(p):
-    """
-    type : annotation_type
-    annotation_type : E_ANNOTATION ID LBRACE annotation_members RBRACE
-    annotation_members : annotated_annotation_member annotation_members
-    annotation_members :
-    annotated_annotation_member : annotations option
-    """
-    raise NotImplementedError("Annotations are not supported",
-                              ploc(p))
-
-
-# -------------------------------------------------
 # interfaces and features.
+# import.
 # -------------------------------------------------
 
-# interface name (extends ...)? { ... }
 @rule
-def p_interface(p):
+def p_not_implemented(p, kind):
     """
-    interface : E_INTERFACE ID super_interfaces LBRACE features RBRACE
+    type : E_ANNOTATION ID
+    type : E_INTERFACE ID
+    import : E_IMPORT
     """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
-
-# (extends ...)?
-@rule
-def p_super_interfaces(p):
-    """
-    super_interfaces : E_EXTENDS reference_list
-    super_interfaces :
-    """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
-
-# annotated_interface_member*
-@rule
-def p_features(p):
-    """
-    features : annotated_feature features
-    features :
-    annotated_feature : annotations feature
-    """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
-
-# feature name (extends ...)?
-@rule
-def p_feature(p):
-    """
-    feature : E_FEATURE ID super_features
-    """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
-
-# (extends ...)?
-@rule
-def p_super_features(p):
-    """
-    super_features : E_EXTENDS reference_list
-    super_features :
-    """
-    raise NotImplementedError("Interfaces and features are not supported",
-                              ploc(p))
+    raise NotImplementedError("'{kind}' types are not supported"
+                              .format(**locals()), ploc(p))
 
 # -------------------------------------------------
 # modules.
@@ -399,6 +327,7 @@ def p_list_entries(p, entry, entries=-1):
     parameters_list : parameter COMMA parameters_list
     reference_list : reference COMMA reference_list
     reference_wopts_list : reference_wopts COMMA reference_wopts_list
+    imports : import imports
     annotations : annotation annotations
     entities : annotated_type entities
     """
@@ -525,20 +454,6 @@ def p_qualified_name(p, tire, name=-1):
     """
     return tire + '.' + name
 
-@rule
-def p_qualified_name_with_wildcard(p):
-    """
-    qualified_name_with_wildcard : qualified_name E_WILDCARD
-    """
-    raise NotImplementedError("Wildcard names are not supported",
-                              ploc(p))
-
-@rule
-def p_qualified_name_without_wildcard(p, qualified_name):
-    """
-    qualified_name_with_wildcard : qualified_name
-    """
-    return qualified_name
 
 def p_error(t):
     if t is not None:

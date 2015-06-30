@@ -29,11 +29,7 @@ tokens = [
     'LBRACKET', 'RBRACKET',
     'COMMA', 'PERIOD', 'COLON', 'EQUALS',
 
-    #######
-
     'E_AT',
-    'E_WILDCARD',
-
 ]
 
 # Completely ignored characters
@@ -60,6 +56,7 @@ t_COMMA            = r','
 t_PERIOD           = r'\.'
 t_COLON            = r':'
 t_EQUALS           = r'='
+t_E_AT             = r'@'
 
 
 reserved = {
@@ -70,7 +67,6 @@ reserved = {
     'annotation': 'E_ANNOTATION',
     'interface': 'E_INTERFACE',
     'extends': 'E_EXTENDS',
-    'feature': 'E_FEATURE',
     'module': 'E_MODULE',
     'static': 'E_STATIC',
     'abstract': 'E_ABSTRACT',
@@ -91,8 +87,6 @@ reserved = {
 }
 tokens.extend(set(reserved.values()))
 
-t_E_AT = r'@'
-t_E_WILDCARD = r'\.\*'
 
 # Identifiers
 def t_ID(t):
