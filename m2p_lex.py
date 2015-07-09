@@ -1,6 +1,3 @@
-import sys
-sys.path.append("../mybuild")
-
 from _compat import *
 
 import ply.lex

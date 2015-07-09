@@ -1,6 +1,3 @@
-import sys
-sys.path.insert(0, "../mybuild")
-
 from _compat import *
 
 from nsloader import pyfile
