@@ -10,6 +10,8 @@ __date__ = "2015-06-27"
 
 from _compat import *
 
+from util.namespace import Namespace
+
 
 builtin_names = [
     # Functions
@@ -41,3 +43,34 @@ builtin_names = [
 # _compat.* as well), and the rest come from Python builtins.
 builtins = dict((name, eval(name)) for name in builtin_names)
 
+
+annotation_names = [
+    'AddPrefix',                'App',
+    'AutoCmd',                  'Build',
+    'BuildArtifactPath',        'BuildDepends',
+    'Cflags',                   'Cmd',
+    'DefaultImpl',              'DefineMacro',
+    'For',                      'Generated',
+    'IfNeed',                   'Include',
+    'IncludeExport',            'IncludePath',
+    'IncludePathBefore',        'InitFS',
+    'InstrumentProfiling',      'Mandatory',
+    'NoRuntime',                'NumConstraint',
+    'Postbuild',                'Rule',
+    'Runlevel',                 'TestFor',
+    'Type',                     'Unique',
+    'WithAllTests',             'WithTest',
+    'WithValueNumber',
+]
+
+class Annotation(Namespace):
+
+    def __call__(self, *args, **kwargs):
+        cls = type(self)
+        if args:
+            kwargs.update(__my_value__=args[0] if len(args)==1 else list(args))
+        ret = cls(**dict(self.__dict__, **kwargs))
+        return ret
+
+
+builtins.update((name, Annotation(__name__=name)) for name in annotation_names)
