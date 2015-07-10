@@ -585,19 +585,14 @@ def p_string(p, s):
     return lambda: ast.Str(s)
 
 @rule_wloc
-def p_pyatom_parens_or_tuple(p, exprlist=2):  # (item, ...)
-    """pyatom : LPAREN exprlist RPAREN"""
+def p_pyatom_parens_or_tuple(p, opentok, exprlist):  # (item, ...), [item, ...]
+    """pyatom : LPAREN   exprlist RPAREN
+       pyatom : LBRACKET exprlist RBRACKET"""
     expr_l, expr_el = exprlist
-    if expr_el is not None:
+    if opentok == '(' and expr_el is not None:
         return lambda: expr_el
     else:
-        return lambda: ast.Tuple(expr_l, ast.Load())
-
-@rule_wloc
-def p_pyatom_list(p, exprlist=2):  # [item, ...]
-    """pyatom : LBRACKET exprlist RBRACKET"""
-    expr_l = exprlist[0]
-    return lambda: ast.List(expr_l, ast.Load())
+        return lambda: ast.List(expr_l, ast.Load())
 
 @rule_wloc
 def p_pyatom_dict(p, kv_pairs=2):  # [key: value, ...], [:]
