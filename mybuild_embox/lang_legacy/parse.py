@@ -381,29 +381,21 @@ def p_empty_modifier_none(p):
     """
     module_modifier :
     """
-    func = prepare_property(p, '[tool.cc, tool.gen_headers]')
-    ns = dict(tools=cached_property(func, attr='tools'))
-    return core.Module, ns
+    return core.Module, {}
 
 @rule
 def p_module_modifier_abstract(p, value):
     """
     module_modifier :  E_ABSTRACT
     """
-    func = prepare_property(p, '[]')
-    ns = dict(tools=cached_property(func, attr='tools'))
-    return core.InterfaceModule, ns
+    return core.InterfaceModule, {}
 
 @rule
 def p_module_modifier_static(p, value):
     """
     module_modifier : E_STATIC
     """
-    func = prepare_property(p, '[tool.cc_lib, tool.gen_headers]')
-    static = prepare_property(p, 'True')
-    ns = dict(tools=cached_property(func, attr='tools'),
-              isstatic=cached_property(static, attr='isstatic'))
-    return core.Module, ns
+    return core.Module, {'isstatic': True}
 
 @rule
 def p_simple_value(p, value):
