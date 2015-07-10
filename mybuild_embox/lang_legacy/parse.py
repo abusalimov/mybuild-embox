@@ -3,7 +3,6 @@ from __future__ import print_function
 from _compat import *
 
 
-import ast
 import functools
 import itertools
 import sys
@@ -13,6 +12,7 @@ from operator import itemgetter
 import ply.yacc
 
 from mybuild_embox.lang_legacy import lex
+from mylang import x_ast as ast
 from mylang.location import Fileinfo
 from mylang.location import Location
 from mylang.helpers import rule
@@ -22,12 +22,6 @@ from mybuild import core
 from util.prop import cached_property
 from util.prop import cached_class_property
 
-
-# Annotations
-MANDATORY = 'Mandatory'
-DEFAULT_IMPL = 'DefaultImpl'
-NO_RUNTIME = 'NoRuntime'
-INCLUDE_PATH = 'IncludePath'
 
 tokens = lex.tokens
 
@@ -162,8 +156,8 @@ def p_annotated_type(p, annotations, member_type):
         func = py_compile_func(p, value)
         setattr(module, name, cached_class_property(func, attr=name))
 
-        if name == DEFAULT_IMPL:
-            func = py_compile_func(p, 'self.{}'.format(name))
+        if name == 'DefaultImpl':
+            func = py_compile_func(p, 'self.{}.__my_value__'.format(name))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
 
@@ -212,21 +206,31 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
         for k, v in module_members:
             members[k] += v
 
-    for key in ['build_depends', 'runtime_depends', 'includes', 'files']:
-        if key in members:
-            func = py_compile_func(p, '[' + ', '.join(members[key]) + ']')
-            module_ns[key] = cached_property(func, attr=key)
+    for kind, prop_name in {'depends': 'depends',
+                            'source': 'files'}.items():
+        if kind in members:
+            members_list = copy_loc(ast.List(members[kind], ast.Load()),
+                                    members[kind][0])
+            func = py_compile_func(p, members_list)
+            module_ns[prop_name] = cached_property(func, attr=prop_name)
 
     if super_module is not None:
-        func = py_compile_func(p, '[' + name + ', ' + super_module + ']')
-        module_ns['provides'] = cached_class_property(func, attr='provides')
         bases = (py_eval(p, super_module),)
     else:
         bases = ()
 
     module_ns['__module__'] = p.lexer.module_globals['__name__']
 
-    meta = module_class._meta_for_base(option_types=members['defines'])
+    option_types = []
+    for option_ast in members['option']:
+        option = py_eval(p, option_ast)
+        if hasattr(option, '__my_value__'):
+            ns = option.__dict__
+            option = ns.pop('__my_value__')[0]
+            option.__dict__.update(ns)
+        option_types.append((option._name, option))
+
+    meta = module_class._meta_for_base(option_types=option_types)
     module = meta(name, bases, module_ns)
 
     return (name, module)
@@ -235,55 +239,49 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
 @rule
 def p_super_module(p, super_module=-1):
     """
-    super_module : E_EXTENDS reference
+    super_module : E_EXTENDS expr
     """
     return super_module
 
 @rule
-def p_annotated_module_member(p, annotations, module_member):
+def p_annotated_module_member(p, annotations, kind_member):
     """
     annotated_module_member : annotations module_member
     """
-    for name, value in annotations:
-        if name == NO_RUNTIME:
-            # Only build depends
-            module_member = [module_member[1]]
-        elif name == INCLUDE_PATH:
-            include = value.replace('(', '{').replace(')', '}')
-            module_member.append(('includes', ['\"' + include + '\"']))
-        else:
-            raise NotImplementedError("Unsupported member annotation {} in {}"
-                                      .format(name, module_member),
-                                      ploc(p))
-    return module_member
+    kind, members = kind_member
+
+    if annotations:
+        member_ns = ast.x_Call(ast.x_Name('__my_new_namespace__'),
+                               args=[ast.List(members, ast.Load())])
+        for name, value in annotations:
+            member_ns.keywords.append(ast.keyword(name, value))
+        members = [copy_loc(member_ns, members[0])]
+
+    return kind, members
 
 @rule
-def p_module_member_depends(p, depends_list=-1):
+def p_module_member(p, kind, value):
     """
-    module_member : E_DEPENDS  reference_wopts_list
+    module_member : E_DEPENDS  naked_exprlist
+    module_member : E_SOURCE   naked_exprlist
     """
-    return [('runtime_depends', depends_list), ('build_depends', depends_list)]
+    if kind == 'include':
+        kind = 'depends'
+    return kind, value
 
 @rule
-def p_module_member_option(p, option=-1):
+def p_module_member_option(p, kind, option=-1):
     """
     module_member : E_OPTION option
     """
-    return [('defines', [option])]
-
-@rule
-def p_module_member_source(p, filename_list=-1):
-    """
-    module_member : E_SOURCE   filename_list
-    """
-    return [('files', filename_list)]
+    return kind, [option]
 
 @rule
 def p_module_member_unused(p, member):
     """
-    module_member : E_PROVIDES reference_list
-    module_member : E_REQUIRES reference_list
-    module_member : E_OBJECT   filename_list
+    module_member : E_PROVIDES naked_exprlist
+    module_member : E_REQUIRES naked_exprlist
+    module_member : E_OBJECT   naked_exprlist
     """
     raise NotImplementedError("Module member is not supported: " + member,
                               ploc(p))
@@ -291,41 +289,31 @@ def p_module_member_unused(p, member):
 
 # ( string | number | boolean | type ) name ( = ...)?
 @rule
-def p_option(p, optype, optid, default_value):
+def p_option(p, optype, name_wloc, default_value):
     """
-    option : option_type ID option_default_value
+    option : option_type name option_default_value
     """
-    _optype = optype()
+    name, loc = name_wloc
+    ret = set_loc_p(ast.x_Call(ast.x_Name('__my_new_option__'),
+                               args=[set_loc(ast.Str(name), loc), optype]), p)
     if default_value is not None:
-        _optype.set(default=default_value)
-    return (optid, _optype.set(name=optid))
+        ret.args.append(default_value)
+
+    return ret
 
 @rule
-def p_option_str(p):
+def p_option_type(p, kind):
     """
     option_type : E_STRING
-    """
-    return core.Optype.str
-
-@rule
-def p_option_type_int(p):
-    """
     option_type : E_NUMBER
-    """
-    return core.Optype.int
-
-
-@rule
-def p_option_bool(p):
-    """
     option_type : E_BOOLEAN
     """
-    return core.Optype.bool
+    return set_loc_p(ast.Str(kind), p)
 
 @rule
 def p_option_type_reference(p):
     """
-    option_type : reference
+    option_type : expr
     """
     raise NotImplementedError("References in options are not supported",
                               ploc(p))
@@ -333,7 +321,7 @@ def p_option_type_reference(p):
 @rule
 def p_option_default_value(p, value=-1):
     """
-    option_default_value : EQUALS value
+    option_default_value : EQUALS expr
     """
     return value
 
@@ -342,7 +330,6 @@ def p_none(p):
     """
     option_default_value :
     super_module :
-    annotation_initializer :
     """
     return None
 
@@ -357,41 +344,15 @@ def p_empty(p):
     return []
 
 @rule
-def p_list_listed_entries(p, listed_entry, listed_entries):
-    """
-    module_members : annotated_module_member module_members
-    """
-    return listed_entry + listed_entries
-
-@rule
 def p_list_entries(p, entry, entries=-1):
     """
-    filename_list : filename COMMA filename_list
-    parameters_list : parameter COMMA parameters_list
-    reference_list : reference COMMA reference_list
-    reference_wopts_list : reference_wopts COMMA reference_wopts_list
     imports : import imports
     annotations : annotation annotations
     entities : annotated_type entities
+    module_members : annotated_module_member module_members
     """
     entries.append(entry)
     return entries
-
-@rule
-def p_list_listed_entry(p, value):
-    """
-    parameters_list : parameter
-    reference_list : reference
-    reference_wopts_list : reference_wopts
-    """
-    return [value]
-
-@rule
-def p_list_listed_filename(p, value):
-    """
-    filename_list :  filename
-    """
-    return [value]
 
 @rule
 def p_empty_modifier_none(p):
@@ -414,69 +375,17 @@ def p_module_modifier_static(p, value):
     """
     return core.Module, {'isstatic': True}
 
-@rule
-def p_simple_filename(p, value):
-    """
-    filename : STRING
-    """
-    return '\"' + value + '\"'
 
 # -------------------------------------------------
 # @annotations.
 # -------------------------------------------------
 
 @rule
-def p_annotation(p, reference=2, annotation_initializer=3):
+def p_annotation(p, name_wloc=2, trailers=3):
     """
-    annotation : E_AT reference annotation_initializer
+    annotation : E_AT name trailers
     """
-    return (reference, annotation_initializer)
-
-@rule
-def p_annotation_initializer(p, value=-2):
-    """
-    annotation_initializer : LPAREN parameters_list RPAREN
-    annotation_initializer :  LPAREN value RPAREN
-    """
-    return value
-
-# -------------------------------------------------
-# comma-separated list of param=value pairs.
-# -------------------------------------------------
-
-@rule
-def p_parameter(p, reference, value=-1):
-    """
-    parameter : simple_reference EQUALS value
-    """
-    return (reference, value)
-
-@rule
-def p_value(p, val):
-    """
-    value : STRING
-    value : NUMBER
-    value : reference
-    reference : qualified_name
-    reference_wopts : reference
-    simple_reference : ID
-    """
-    return val
-
-@rule
-def p_reference_wopts(p, reference=1, parameters_list=3):
-    """
-    reference_wopts : reference LPAREN parameters_list RPAREN
-    """
-    return reference + ', '.join(map('{0[0]!s}={0[1]!r}'.format,
-                                     parameters_list)).join('()')
-
-@rule
-def p_value_bool(p, val):
-    """
-    value : E_BOOL
-    """
-    return val == 'true'
+    return name_wloc[0], build_chain(trailers, build_node(name_wloc))
 
 
 def p_error(t):
@@ -512,6 +421,11 @@ def p_stub(p, builder):
 def p_pyatom_num(p, n):
     """pyatom : NUMBER"""
     return lambda: ast.Num(n)
+
+@rule_wloc
+def p_pyatom_bool(p, b):
+    """pyatom : E_BOOL"""
+    return lambda: ast.x_Name(b.capitalize())
 
 @rule
 def p_pyatom_string(p, string):
@@ -603,6 +517,11 @@ def p_trailer_item(p, item=2):  # x[item]
 
 
 # exprlist is a pair of [list of elements] and a single element (if any)
+
+@rule
+def p_naked_exprlist(p, exprlist):
+    """naked_exprlist : exprlist"""
+    return exprlist[0]
 
 @rule
 def p_exprlist(p, l):

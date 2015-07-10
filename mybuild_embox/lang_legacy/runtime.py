@@ -10,6 +10,7 @@ __date__ = "2015-06-27"
 
 from _compat import *
 
+from mybuild import core
 from util.namespace import Namespace
 
 
@@ -28,6 +29,10 @@ builtin_names = [
     # Constants
     'False', 'True', 'None',
 
+    # Mylang-specific
+    '__my_new_namespace__',
+    '__my_new_option__',
+
 
     # Disabled Python builtins:
     #
@@ -37,6 +42,17 @@ builtin_names = [
     # round setattr staticmethod super unichr unicode vars xrange __import__
     # apply buffer coerce intern
 ]
+
+def __my_new_namespace__(value, **kwargs):
+    return Namespace(__my_value__=value, **kwargs)
+
+_OPTION_TYPES = {
+    'string': core.Optype.str,
+    'number': core.Optype.int,
+    'boolean': core.Optype.bool,
+}
+def __my_new_option__(name, type_str, default=Ellipsis):
+    return _OPTION_TYPES[type_str](default=default).set(name=name)
 
 
 # Note that some name are taken from globals of this module (this includes
