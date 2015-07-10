@@ -106,7 +106,11 @@ def p_package(p, qualname_wlocs=-1):
     """
     package : E_PACKAGE qualname
     """
-    return '.'.join(name for name, loc in qualname_wlocs)
+    qualname = '.'.join(name for name, loc in qualname_wlocs)
+    expected = p.lexer.module_globals['__package__']
+    if qualname != expected:
+        raise MySyntaxError("Package mismatch, expected '{expected}'"
+                            .format(**locals()), ploc(p, 2))
 
 @rule
 def p_annotated_type(p, annotations, member_type):
@@ -298,7 +302,6 @@ def p_none(p):
     """
     option_default_value :
     super_module :
-    package :
     annotation_initializer :
     """
     return None
