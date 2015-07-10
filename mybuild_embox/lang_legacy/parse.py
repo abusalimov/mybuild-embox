@@ -102,11 +102,11 @@ def p_my_file(p, package, imports, entities):
 
 # package?
 @rule
-def p_package(p, qualified_name=-1):
+def p_package(p, qualname_wlocs=-1):
     """
-    package : E_PACKAGE qualified_name
+    package : E_PACKAGE qualname
     """
-    return qualified_name
+    return '.'.join(name for name, loc in qualname_wlocs)
 
 @rule
 def p_annotated_type(p, annotations, member_type):
@@ -372,14 +372,6 @@ def p_module_modifier_static(p, value):
     return core.Module, {'isstatic': True}
 
 @rule
-def p_simple_value(p, value):
-    """
-    qualified_name : ID
-    """
-    return value
-    ['\"' + value + '\"']
-
-@rule
 def p_simple_filename(p, value):
     """
     filename : STRING
@@ -442,17 +434,6 @@ def p_value_bool(p, val):
     value : E_BOOL
     """
     return val == 'true'
-
-
-# -------------------------------------------------
-# extended identifiers.
-# -------------------------------------------------
-@rule
-def p_qualified_name(p, tire, name=-1):
-    """
-    qualified_name : ID PERIOD qualified_name
-    """
-    return tire + '.' + name
 
 
 def p_error(t):
