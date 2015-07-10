@@ -1,3 +1,8 @@
+from __future__ import print_function
+
+from _compat import *
+
+
 import ast
 import itertools
 import sys
@@ -549,5 +554,5 @@ module sched_ticker_preempt extends sched_ticker {
 }
 """
     res = my_parse(source, debug=0)
-    print res
+    print(res)
 
