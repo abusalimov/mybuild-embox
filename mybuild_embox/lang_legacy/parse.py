@@ -511,7 +511,7 @@ def p_error(t):
         raise MySyntaxError("Premature end of file")
 
 parser = ply.yacc.yacc(start='my_file',
-                       # errorlog=ply.yacc.NullLogger(), debug=False,
+                       errorlog=ply.yacc.NullLogger(), debug=False,
                        write_tables=False)
 
 def my_parse(source, filename="<unknown>", module_globals=None, **kwargs):
