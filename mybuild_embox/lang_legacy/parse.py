@@ -538,21 +538,7 @@ def my_parse(source, filename="<unknown>", module_globals=None, **kwargs):
 
 if __name__ == "__main__":
     source = """
-package embox.kernel.sched
-
-@DefaultImpl(sched_ticker_preempt)
-abstract module sched_ticker { }
-
-module sched_ticker_preempt extends sched_ticker {
-    source "sched_ticker.c"
-    option number tick_interval = 100
-    option string tick_interval = "xxx"
-    option boolean tick_interval = false
-    @NoRuntime depends embox.kernel.timer.sys_timer /* for timeslices support */
-    @NoRuntime depends embox.kernel.timer /* for timeslices support */
-    depends embox.kernel /* for timeslices support */
-}
-"""
+    """
     res = my_parse(source, debug=0)
     print(res)
 
