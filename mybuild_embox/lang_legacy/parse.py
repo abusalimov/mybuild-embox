@@ -533,6 +533,9 @@ def my_parse(source, filename="<unknown>", module_globals=None, **kwargs):
         result = parser.parse(source, lexer=lx, tracking=True, **kwargs)
     except (MySyntaxError, NotImplementedError) as e:
         raise SyntaxError(*e.args)
+    except:
+        print("Unable to parse '{}'".format(filename), file=sys.stderr)
+        raise
 
     return result
 
