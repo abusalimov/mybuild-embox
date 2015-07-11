@@ -1,6 +1,5 @@
 from _compat import *
 
-from keyword import iskeyword
 import ast
 
 import ply.lex
@@ -26,13 +25,10 @@ tokens = [
     # Delimeters ( ) { } , . $ = ; |
     'LPAREN',   'RPAREN',
     'LBRACE',   'RBRACE',
-    'COMMA', 'PERIOD', 'EQUALS',
-
-    #######
+    'LBRACKET', 'RBRACKET',
+    'COMMA', 'PERIOD', 'COLON', 'EQUALS',
 
     'E_AT',
-    'E_WILDCARD',
-
 ]
 
 # Completely ignored characters
@@ -57,7 +53,9 @@ def t_RBRACE(t):   r'\}'; t.lexer.ignore_newline_stack.pop();     return t
 # Delimeters
 t_COMMA            = r','
 t_PERIOD           = r'\.'
+t_COLON            = r':'
 t_EQUALS           = r'='
+t_E_AT             = r'@'
 
 
 reserved = {
@@ -68,7 +66,6 @@ reserved = {
     'annotation': 'E_ANNOTATION',
     'interface': 'E_INTERFACE',
     'extends': 'E_EXTENDS',
-    'feature': 'E_FEATURE',
     'module': 'E_MODULE',
     'static': 'E_STATIC',
     'abstract': 'E_ABSTRACT',
@@ -86,19 +83,17 @@ reserved = {
     # this way, configuration == module
     'configuration': 'E_MODULE',
     'include': 'E_DEPENDS',
+
+    '__my_debug_print__': 'E_PRINT',
 }
 tokens.extend(set(reserved.values()))
 
-t_E_AT = r'@'
-t_E_WILDCARD = r'\.\*'
 
 # Identifiers
 def t_ID(t):
     r'\^?[a-zA-Z_][a-zA-Z_0-9]*'
     t.type = reserved.get(t.value,'ID')    # Check for reserved words
     t.value = t.value.lstrip('^')
-    if iskeyword(t.value):
-        t.value += '_'
     return t
 
 # A regular expression rule with some action code
