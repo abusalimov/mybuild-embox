@@ -80,9 +80,9 @@ def build_chain(builder_wlocs, expr=None):
     return expr
 
 
-def prepare_property(p, return_value):
+def py_compile_func(p, expr):
     try:
-        ast_root = ast.parse('lambda self: ({})'.format(return_value),
+        ast_root = ast.parse('lambda self: ({})'.format(expr),
                              p.lexer.fileinfo.name, mode='eval')
         ast.increment_lineno(ast_root, p.lineno(0)-1)
         code = compile(ast_root,
@@ -119,11 +119,11 @@ def p_annotated_type(p, annotations, member_type):
     """
     module_name, module = member_type
     for name, value in annotations:
-        func = prepare_property(p, value)
+        func = py_compile_func(p, value)
         setattr(module, name, cached_class_property(func, attr=name))
 
         if name == DEFAULT_IMPL:
-            func = prepare_property(p, 'self.{}'.format(name))
+            func = py_compile_func(p, 'self.{}'.format(name))
             module.default_provider = cached_class_property(func,
                                         attr='default_provider')
 
@@ -174,13 +174,13 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
 
     for key in ['build_depends', 'runtime_depends', 'includes', 'files']:
         if key in members:
-            func = prepare_property(p, '[' + ', '.join(members[key]) + ']')
+            func = py_compile_func(p, '[' + ', '.join(members[key]) + ']')
             module_ns[key] = cached_property(func, attr=key)
 
     if super_module is not None:
-        func = prepare_property(p, '[' + name + ', ' + super_module + ']')
+        func = py_compile_func(p, '[' + name + ', ' + super_module + ']')
         module_ns['provides'] = cached_class_property(func, attr='provides')
-        bases = (prepare_property(p, super_module)(None),)
+        bases = (py_compile_func(p, super_module)(None),)
     else:
         bases = ()
 
