@@ -80,15 +80,17 @@ def build_chain(builder_wlocs, expr=None):
     return expr
 
 
-def py_compile_func(p, expr):
+def py_compile_func(p, expr, self_arg='self'):
     try:
         if isinstance(expr, ast.AST):
-            args = ast.x_arguments([ast.x_arg('self')])
+            args = ast.x_arguments([ast.x_arg(self_arg)]
+                                   if self_arg is not None else [])
             ast_root = ast.Expression(copy_loc(ast.Lambda(args, expr),
                                                expr))
             ast.fix_missing_locations(ast_root)
         else:
-            ast_root = ast.parse('lambda self: ({})'.format(expr),
+            ast_root = ast.parse('lambda {}: ({})'.format(self_arg or '',
+                                                          expr),
                                  p.lexer.fileinfo.name, mode='eval')
             ast.increment_lineno(ast_root, p.lineno(0)-1)
 
@@ -101,6 +103,21 @@ def py_compile_func(p, expr):
     except:
         print(ast.dump(ast_root, include_attributes=True))
         raise
+
+def py_eval(p, expr, **self_arg_value):
+    if len(self_arg_value) > 1:
+        raise ValueError('Too many keyword arguments')
+    try:
+        self_arg, self_value = self_arg_value.popitem()
+    except KeyError:
+        self_arg = None
+
+    func = py_compile_func(p, expr, self_arg)
+
+    if self_arg is not None:
+        return func(self_value)
+    else:
+        return func()
 
 
 @rule
@@ -191,7 +208,7 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
     if super_module is not None:
         func = py_compile_func(p, '[' + name + ', ' + super_module + ']')
         module_ns['provides'] = cached_class_property(func, attr='provides')
-        bases = (py_compile_func(p, super_module)(None),)
+        bases = (py_eval(p, super_module),)
     else:
         bases = ()
 
