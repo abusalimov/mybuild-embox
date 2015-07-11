@@ -114,6 +114,10 @@ def py_eval(p, expr, **self_arg_value):
         return func()
 
 
+class module(core.ModuleMetaBase):
+    """An alias with a human-readable name."""
+
+
 @rule
 def p_my_file(p, package, imports, entities):
     """
@@ -230,10 +234,11 @@ def p_module_type(p, modifier, name=3, super_module=4, module_members=-2):
             option.__dict__.update(ns)
         option_types.append((option._name, option))
 
-    meta = module_class._meta_for_base(option_types=option_types)
-    module = meta(name, bases, module_ns)
+    meta = module_class._meta_for_base(option_types=option_types,
+                                       metaclass=module)
+    ret_module = meta(name, bases, module_ns)
 
-    return (name, module)
+    return (name, ret_module)
 
 # (extends ...)?
 @rule
